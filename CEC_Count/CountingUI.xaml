@@ -15,9 +15,9 @@
     <Window.Resources>
         <DataTemplate x:Key="listItemViewTemplate">
             <Grid Margin="5">
-                <StackPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" >
                     <StackPanel Orientation="Horizontal">
-                        <CheckBox  Content="{Binding Name}" IsChecked="{Binding Selected,UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" >
+                        <CheckBox  Content="{Binding Name}" IsChecked="{Binding Selected, Mode=TwoWay}" >
                         </CheckBox>
                     </StackPanel>
                 </StackPanel>
@@ -53,7 +53,7 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="9*" />
                     </Grid.RowDefinitions>
-                    <CheckBox x:Name="mepCheckAll" VerticalAlignment="Center" Margin="5" Content="全選" Checked="mepCheckAll_check"/>
+                    <CheckBox x:Name="mepCheckAll" VerticalAlignment="Center" Margin="5" Content="全選" Checked="mepCheckAll_check" Unchecked="mepCheckAll_unCheck"/>
                     <ListBox x:Name="mepCateList" ItemTemplate="{StaticResource listItemViewTemplate}" Grid.Row="1" Margin="5"/>
                 </Grid>
             </TabItem>
@@ -63,7 +63,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="9*"/>
                     </Grid.RowDefinitions>
-                    <CheckBox x:Name="civilCheckAll" VerticalAlignment="Center" Margin="5" Content="全選" Checked="civilCheckAll_check" />
+                    <CheckBox x:Name="civilCheckAll" VerticalAlignment="Center" Margin="5" Content="全選" Checked="civilCheckAll_check" Unchecked="civilCheckAll_unCheck" />
                     <ListBox x:Name="civilCateList" ItemTemplate="{StaticResource listItemViewTemplate}" Grid.Row="1" Margin="5"/>
                 </Grid>
             </TabItem>
@@ -73,7 +73,7 @@
         <!--<ListBox x:Name="cateListBox" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="10"/>-->
         <TextBlock x:Name="selectHint" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Text="請勾選欲進行干涉的品類" Margin="10,0" VerticalAlignment="Center"/>
         <ProgressBar x:Name="pBar" Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3" Margin="10,5" />
-        <CheckBox x:Name="filterCjeck" Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Content="僅套用視圖可見量體" Margin="10,0" />
+        <CheckBox x:Name="filterCheck" Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Content="僅套用視圖可見量體" Margin="10,0" />
         <Button x:Name="continueButton" Content="執行" Grid.Row="5" Grid.Column="1" Margin="5,15" Click="continueButton_Click"/>
         <Button x:Name="cancelButton" Content="結束" Grid.Row="5" Grid.Column="2" Margin="5,15" Click="cancelButton_Click"/>
     </Grid>

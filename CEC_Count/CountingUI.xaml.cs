@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Input;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -15,13 +16,15 @@ using System.Text;
 using System.IO;
 using System.Threading;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace CEC_Count
 {
     /// <summary>
     /// CountingUI.xaml 的互動邏輯
     /// </summary>
-    public partial class CountingUI : Window
+    public partial class CountingUI : Window/*, INotifyPropertyChanged*/
     {
         private readonly UIApplication _uiApp;
         private readonly Autodesk.Revit.ApplicationServices.Application _app;
@@ -30,9 +33,14 @@ namespace CEC_Count
 
         private readonly EventHandlerWithStringArg _mExternalMethodStringArg;
         private readonly EventHandlerWithWpfArg _mExternalMethodWpfArg;
-        public ObservableCollection<CustomCate> mepCusCateList;
-        public ObservableCollection<CustomCate> civilCusCateList;
+        //public ObservableCollection<CustomCate> mepCusCateList;
+        //public ObservableCollection<CustomCate> civilCusCateList;
+        public List<CustomCate> mepCusCateList;
+        public List<CustomCate> civilCusCateList;
 
+        //public event PropertyChangedEventHandler PropertyChanged;
+        //public void OnPropertyChanged([CallerMemberName] string propertyName = "") =>
+        //    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
         public CountingUI(ExternalCommandData commandData, EventHandlerWithStringArg evExternalMethodStringArg,
             EventHandlerWithWpfArg eExternalMethodWpfArg)
@@ -49,6 +57,11 @@ namespace CEC_Count
             _mExternalMethodWpfArg = eExternalMethodWpfArg;
             Method m = new Method(_uiApp);
             m.getDocFromRevitLinkInst(this, _doc);
+            if (_doc.ActiveView.ViewType != ViewType.FloorPlan)
+            {
+                this.filterCheck.IsEnabled = false;
+                this.filterCheck.Foreground = Brushes.Gray;
+            }
             List<BuiltInCategory> MEPcates = new List<BuiltInCategory>()
             {
                 BuiltInCategory.OST_PipeCurves,//管
@@ -73,7 +86,8 @@ namespace CEC_Count
                 BuiltInCategory.OST_CommunicationDevices,
                 BuiltInCategory.OST_SecurityDevices,
                 BuiltInCategory.OST_ElectricalFixtures,
-                BuiltInCategory.OST_ElectricalEquipment
+                BuiltInCategory.OST_ElectricalEquipment,
+                BuiltInCategory.OST_FurnitureSystems
             };
             List<BuiltInCategory> Civilcates = new List<BuiltInCategory>()
             {
@@ -89,8 +103,8 @@ namespace CEC_Count
                 BuiltInCategory.OST_Windows,
                 BuiltInCategory.OST_Doors
             };
-            m.getTargetCategory(this, true, MEPcates);
-            m.getTargetCategory(this, false, Civilcates);
+            mepCusCateList = m.getTargetCategory(this, true, MEPcates);
+            civilCusCateList = m.getTargetCategory(this, false, Civilcates);
         }
 
         private void continueButton_Click(object sender, RoutedEventArgs e)
@@ -110,25 +124,56 @@ namespace CEC_Count
         private void mepCheckAll_check(object sender, RoutedEventArgs e)
         {
             bool allCheck = (mepCheckAll.IsChecked == true);
-            //ObservableCollection<CustomCate> cusCateList = new ObservableCollection<CustomCate>();
             int count = 0;
             //this.mepCateList.Items
-            foreach (CustomCate cusCate in this.mepCateList.ItemsSource)
+            //foreach (CustomCate cusCate in this.mepCateList.ItemsSource)
+            foreach (CustomCate cusCate in mepCusCateList)
+            //foreach (System.Windows.Forms.Control c  in this.mepCateList.ItemsSource)
             {
                 cusCate.Selected = allCheck;
                 count++;
-                //cusCateList.Add(cusCate);
-              //cusCate.Selected = true;
             }
-            //this.Dispatcher.Invoke(() => this.mepCateList.DataContext = cusCateList);
-            //InitializeComponent();
+            this.mepCateList.ItemsSource = null;
+            this.mepCateList.ItemsSource = mepCusCateList;
+        }
+        private void mepCheckAll_unCheck(object sender, RoutedEventArgs e)
+        {
+            bool allCheck = (mepCheckAll.IsChecked == true);
+            int count = 0;
+            foreach (CustomCate cusCate in mepCusCateList)
+            {
+                cusCate.Selected = allCheck;
+                count++;
+            }
+            this.mepCateList.ItemsSource = null;
+            this.mepCateList.ItemsSource = mepCusCateList;
         }
 
         private void civilCheckAll_check(object sender, RoutedEventArgs e)
         {
-            //bool allCheck = (civilCheckAll.IsChecked == true);
-            //this.mepCheckAll.IsChecked = true;
+            bool allCheck = (civilCheckAll.IsChecked == true);
+            int count = 0;
+            foreach (CustomCate cusCate in civilCusCateList)
+            {
+                cusCate.Selected = allCheck;
+                count++;
+            }
+            this.civilCateList.ItemsSource = null;
+            this.civilCateList.ItemsSource = civilCusCateList;
         }
-        //private void changePropertyofCusCate
+        private void civilCheckAll_unCheck(object sender, RoutedEventArgs e)
+        {
+            bool allCheck = (civilCheckAll.IsChecked == true); ;
+            int count = 0;
+            foreach (CustomCate cusCate in civilCusCateList)
+            {
+                cusCate.Selected = allCheck;
+                count++;
+            }
+            this.civilCateList.ItemsSource = null;
+            this.civilCateList.ItemsSource = civilCusCateList;
+        }
+
+
     }
 }

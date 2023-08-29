@@ -30,86 +30,177 @@ namespace CEC_Count
             Autodesk.Revit.ApplicationServices.Application app = uiapp.Application;
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
             Document doc = uidoc.Document;
-            //string testOutput = "";
-
-            //Method m = new Method(uiapp);
-            ////製作過濾器，此功能後續可供選擇，要更新參數的品類有哪些
-            //List<string> paraNames = new List<string>() { "MEP用途", "MEP區域" };
-            ////BuiltInCategory[] builts =
-            //List<BuiltInCategory>builts=new List<BuiltInCategory>()
+            Method m = new Method(uiapp);
+            List<BuiltInCategory> builts = new List<BuiltInCategory>() {
+                BuiltInCategory.OST_PipeCurves, 
+                BuiltInCategory.OST_MechanicalEquipment, 
+                BuiltInCategory.OST_Sprinklers ,
+                BuiltInCategory.OST_PipeFitting,
+                BuiltInCategory.OST_FireAlarmDevices
+            };
+            //using (TransactionGroup transGroup = new TransactionGroup(doc))
             //{
-            //BuiltInCategory.OST_PipeCurves,
-            //BuiltInCategory.OST_PipeAccessory,
-            //BuiltInCategory.OST_PipeFitting,
-            //BuiltInCategory.OST_Conduit,
-            //BuiltInCategory.OST_ConduitFitting,
-            //BuiltInCategory.OST_DuctCurves,
-            //BuiltInCategory.OST_MechanicalEquipment,
-            //BuiltInCategory.OST_FurnitureSystems,
-            //BuiltInCategory.OST_Sprinklers,
-            //BuiltInCategory.OST_FireAlarmDevices
-            //};
-            //LogicalOrFilter orFilter = m.categoryFilter_MEP(builts);
-            //m.loadSharedParmeter(builts,paraNames);//載入共用參數
-            //this.ShowForm(commandData);
-            this.ShowFormSeparateThread(commandData);
-            ////CountingUI ui = new CountingUI(commandData);
-            ////ui.ShowDialog();
+            //    transGroup.Start("共用參數調整");
+            //    List<string> paraNames = new List<string>() { "MEP用途", "MEP區域" };
+            //    m.loadSharedParmeter(builts, paraNames);
+            //    MessageBox.Show("共用參數調整成功");
+            //    transGroup.Assimilate();
+            //}
 
-            ////選擇具有量體的外參模型，並將其量體中boundingbox取出來
-            //FilteredElementCollector rvtLinkCollector = new FilteredElementCollector(doc).OfClass(typeof(RevitLinkInstance));
-
-            //#region 取得量體文件-->取法要在改變
-            //RevitLinkInstance linkInst = rvtLinkCollector.First() as RevitLinkInstance;
-            //Transform transform = linkInst.GetTotalTransform();
-            //Document linkDoc = linkInst.GetLinkDocument();
-            //FilteredElementCollector massCollect_link = new FilteredElementCollector(linkDoc).OfCategory(BuiltInCategory.OST_Mass).WhereElementIsNotElementType();
-            //MessageBox.Show($"{linkDoc.Title}中，共有{massCollect_link.Count()}個實作量體");
-
-            ////取得量體後，利用量體去和「每一個」本地端的元件進行碰撞
-            //if (massCollect_link.Count() == 0) { MessageBox.Show("選取的外參檔案中無實作的量體"); }
-            //foreach (Element e in massCollect_link)
+            //using (Transaction tt = new Transaction(doc))
             //{
-            //    foreach (string st in paraNames)
+            //    tt.Start("共用參數調整");
+
+
+            //    tt.Commit();
+            //}
+
+            //#region
+            ////試著用本機視圖去抓外參中的量體
+            //FilteredElementCollector linkInstCollector = new FilteredElementCollector(doc).OfClass(typeof(RevitLinkInstance));
+            //Document targetDoc = null;
+            //RevitLinkInstance targetLinkInst = null;
+            //foreach (Element e in linkInstCollector)
+            //{
+            //    RevitLinkInstance linkInst = e as RevitLinkInstance;
+            //    if (linkInst != null)
             //    {
-            //        if (!m.checkPara(e, st))
+            //        Document linkedDoc = linkInst.GetLinkDocument();
+            //        if (linkedDoc == null) continue;
+            //        FilteredElementCollector tempColl = new FilteredElementCollector(linkedDoc).OfCategory(BuiltInCategory.OST_Mass).WhereElementIsNotElementType();
+            //        if (tempColl.Count() > 0)
             //        {
-            //            MessageBox.Show($"請確認模型中的量體是否存在「{st}」參數");
+            //            targetDoc = linkedDoc;
+            //            targetLinkInst = linkInst;
             //            break;
             //        }
             //    }
-            //    string MEPUtility = e.LookupParameter("MEP用途").AsString();
-            //    string MEPRegion = e.LookupParameter("MEP區域").AsString();
-
-            //    BoundingBoxXYZ massBounding = e.get_BoundingBox(null);
-            //    Outline massOutline = new Outline(transform.OfPoint(massBounding.Min), transform.OfPoint(massBounding.Max));
-            //    BoundingBoxIntersectsFilter boxIntersectFilter = new BoundingBoxIntersectsFilter(massOutline);
-            //    Solid castSolid = m.singleSolidFromElement(e);
-            //    if (castSolid == null) continue;
-            //    ElementIntersectsSolidFilter solidFilter = new ElementIntersectsSolidFilter(castSolid);
-            //    FilteredElementCollector MepCollector = new FilteredElementCollector(doc).WherePasses(orFilter).WhereElementIsNotElementType();
-            //    MepCollector.WherePasses(boxIntersectFilter).WherePasses(solidFilter);
-            //    using (Transaction trans = new Transaction(doc))
-            //    {
-            //        trans.Start("寫入分區參數");
-            //        foreach (Element ee in MepCollector)
-            //        {
-            //            Parameter targetPara = ee.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS);
-            //            targetPara.Set(MEPRegion);
-            //        }
-            //        trans.Commit();
-
-            //        Categories cates = doc.Settings.Categories;
-            //        foreach (Category cat in cates)
-            //        {
-            //            testOutput += $"{ cat.Id}";
-            //        }
-
-            //    }
             //}
-            //MessageBox.Show(testOutput);
+
+            //////複製可以嘗試複製視圖，但感覺不是好方法，改用BouningBoxUV去進行過濾
+            ////VisibleInViewFilter viewFilter = new VisibleInViewFilter(doc, doc.ActiveView.Id, false);
+            //Transform trans = targetLinkInst.GetTotalTransform();
+            //Autodesk.Revit.DB.View av = doc.ActiveView;
+
+            ////ViewPlan vp = ((ViewPlan)(doc.ActiveView));
+            ////if (vp == null) MessageBox.Show("請在平面視圖中使用此功能");
+            //BoundingBoxXYZ bounding = av.get_BoundingBox(null);
+            ////Outline outline = new Outline(trans.OfPoint(bounding.Min), trans.OfPoint(bounding.Max));
+            //Outline outline = new Outline(bounding.Min, bounding.Max);
+            //BoundingBoxIntersectsFilter boxIntersectFilter = new BoundingBoxIntersectsFilter(outline);
+            //using (Transaction ttrans = new Transaction(doc))
+            //{
+            //    ttrans.Start("試圖量體創建測試");
+            //    Solid tempSolid = getSolidFromBBox(doc.ActiveView);
+            //    ElementIntersectsSolidFilter solidFilter = new ElementIntersectsSolidFilter(tempSolid);
+            //    BoundingBoxXYZ bBox = tempSolid.GetBoundingBox();
+            //    Outline outline1 = new Outline(bBox.Min, bBox.Max);
+            //    BoundingBoxIntersectsFilter bBoxIntersectFilter = new BoundingBoxIntersectsFilter(outline1);
+            //    FilteredElementCollector coll = new FilteredElementCollector(targetDoc).OfCategory(BuiltInCategory.OST_Mass).WherePasses(bBoxIntersectFilter).WhereElementIsNotElementType();
+            //    MessageBox.Show(coll.Count().ToString());       
+            //    DirectShape ds = createSolidFromBBox(av);
+            //    MessageBox.Show(ds.Id.ToString());
+
+            //    ttrans.Commit();
+            //}
+            ////PlanViewRange PVR = vp.GetViewRange();
+            ////double CutOffset = PVR.GetOffset(PlanViewPlane.CutPlane)*2;
+            //////MessageBox.Show((CutOffset * 30.48).ToString());
+            ////ViewCropRegionShapeManager CR = vp.GetCropRegionShapeManager();
+            ////IList<CurveLoop> Crops = CR.GetCropShape();
+            ////MessageBox.Show(Crops.Count().ToString());
+            ////Solid VirtualSolid = GeometryCreationUtilities.CreateExtrusionGeometry(new CurveLoop[] { Crops.First() }, XYZ.BasisZ, CutOffset);
+            ////Solid VirtualLinkSolid = SolidUtils.CreateTransformed(VirtualSolid, targetLinkInst.GetTotalTransform().Inverse);
+            ////ElementIntersectsSolidFilter solidFilter = new ElementIntersectsSolidFilter(VirtualLinkSolid);
+
+            ////FilteredElementCollector massColl = new FilteredElementCollector(targetDoc).OfCategory(BuiltInCategory.OST_Mass).WherePasses(boxIntersectFilter)./*OwnedByView(doc.ActiveView.Id).*/WhereElementIsNotElementType();
+            ////MessageBox.Show(massColl.Count().ToString());
             //#endregion
+
+            this.ShowForm(commandData);
+            //this.ShowFormSeparateThread(commandData);
             return Result.Succeeded;
+        }
+        public DirectShape createSolidFromBBox(Autodesk.Revit.DB.View view)
+        {
+            Document doc = view.Document;
+
+            BoundingBoxXYZ inputBb = null;
+            double cutPlaneHeight = 0.0;
+            XYZ pt0 = null;
+            XYZ pt1 = null;
+            XYZ pt2 = null;
+            XYZ pt3 = null;
+            Solid preTransformBox = null;
+            if (view.ViewType == ViewType.FloorPlan)
+            {
+                inputBb = view.get_BoundingBox(null);
+                Autodesk.Revit.DB.Plane planePlanView = view.SketchPlane.GetPlane();
+                Autodesk.Revit.DB.PlanViewRange viewRange = (view as Autodesk.Revit.DB.ViewPlan).GetViewRange();
+                cutPlaneHeight = viewRange.GetOffset(Autodesk.Revit.DB.PlanViewPlane.CutPlane);
+                //XYZ pt0 = inputBb.Min;
+                //XYZ pt1 = new XYZ(inputBb.Max.X, inputBb.Min.Y, inputBb.Min.Z);
+                //XYZ pt2 = new XYZ(inputBb.Max.X, inputBb.Max.Y, inputBb.Min.Z);
+                //XYZ pt3 = new XYZ(inputBb.Min.X, inputBb.Max.Y, inputBb.Min.Z);
+                double level = view.GenLevel.ProjectElevation;
+                pt0 = new XYZ(inputBb.Min.X, inputBb.Min.Y, level);
+                pt1 = new XYZ(inputBb.Max.X, inputBb.Min.Y, level);
+                pt2 = new XYZ(inputBb.Max.X, inputBb.Max.Y, level);
+                pt3 = new XYZ(inputBb.Min.X, inputBb.Max.Y, level);
+
+                Line edge0 = Line.CreateBound(pt0, pt1);
+                Line edge1 = Line.CreateBound(pt1, pt2);
+                Line edge2 = Line.CreateBound(pt2, pt3);
+                Line edge3 = Line.CreateBound(pt3, pt0);
+                List<Curve> edges = new List<Curve>();
+                edges.Add(edge0);
+                edges.Add(edge1);
+                edges.Add(edge2);
+                edges.Add(edge3);
+                CurveLoop baseLoop = CurveLoop.Create(edges);
+                List<CurveLoop> loopList = new List<CurveLoop>();
+                loopList.Add(baseLoop);
+                preTransformBox = GeometryCreationUtilities.CreateExtrusionGeometry(loopList, XYZ.BasisZ, cutPlaneHeight);
+                //Solid 
+                double solidheight = inputBb.Max.Z - inputBb.Min.Z;
+            }
+            else if (view.ViewType == ViewType.ThreeD)
+            {
+                View3D view3D = (View3D)view;
+                //inputBb = view3D.GetSectionBox();
+                inputBb = view.CropBox;
+                if (inputBb == null) MessageBox.Show("請確認剖面框是否開啟");
+                pt0 = inputBb.Min;
+                pt1 = new XYZ(inputBb.Max.X, inputBb.Min.Y, inputBb.Min.Z);
+                pt2 = new XYZ(inputBb.Max.X, inputBb.Max.Y, inputBb.Min.Z);
+                pt3 = new XYZ(inputBb.Min.X, inputBb.Max.Y, inputBb.Min.Z);
+                Line edge0 = Line.CreateBound(pt0, pt1);
+                Line edge1 = Line.CreateBound(pt1, pt2);
+                Line edge2 = Line.CreateBound(pt2, pt3);
+                Line edge3 = Line.CreateBound(pt3, pt0);
+                List<Curve> edges = new List<Curve>();
+                edges.Add(edge0);
+                edges.Add(edge1);
+                edges.Add(edge2);
+                edges.Add(edge3);
+                CurveLoop baseLoop = CurveLoop.Create(edges);
+                List<CurveLoop> loopList = new List<CurveLoop>();
+                loopList.Add(baseLoop);
+                double solidheight = inputBb.Max.Z - inputBb.Min.Z;
+                preTransformBox = GeometryCreationUtilities.CreateExtrusionGeometry(loopList, XYZ.BasisZ, solidheight);
+            }
+            // Put this inside a transaction!
+
+
+            DirectShape ds = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
+            ds.ApplicationId = "Test";
+            ds.ApplicationDataId = "testBox";
+            List<GeometryObject> GeoList = new List<GeometryObject>();
+            GeoList.Add(preTransformBox); // <-- the solid created for the intersection can be used here
+            ds.SetShape(GeoList);
+            ds.SetName("ID_testBox");
+
+            return ds;
         }
 
         public void ShowForm(ExternalCommandData commandData)
@@ -130,8 +221,79 @@ namespace CEC_Count
             _mMyForm.Show();
         }
 
+        public Solid getSolidFromBBox(Autodesk.Revit.DB.View view)
+        {
+            Document doc = view.Document;
+
+            BoundingBoxXYZ inputBb = null;
+            double cutPlaneHeight = 0.0;
+            XYZ pt0 = null;
+            XYZ pt1 = null;
+            XYZ pt2 = null;
+            XYZ pt3 = null;
+            Solid preTransformBox = null;
+            if (view.ViewType == ViewType.FloorPlan)
+            {
+                inputBb = view.get_BoundingBox(null);
+                Autodesk.Revit.DB.Plane planePlanView = view.SketchPlane.GetPlane();
+                Autodesk.Revit.DB.PlanViewRange viewRange = (view as Autodesk.Revit.DB.ViewPlan).GetViewRange();
+                cutPlaneHeight = viewRange.GetOffset(Autodesk.Revit.DB.PlanViewPlane.CutPlane);
+                //XYZ pt0 = inputBb.Min;
+                //XYZ pt1 = new XYZ(inputBb.Max.X, inputBb.Min.Y, inputBb.Min.Z);
+                //XYZ pt2 = new XYZ(inputBb.Max.X, inputBb.Max.Y, inputBb.Min.Z);
+                //XYZ pt3 = new XYZ(inputBb.Min.X, inputBb.Max.Y, inputBb.Min.Z);
+                double level = view.GenLevel.ProjectElevation;
+                pt0 = new XYZ(inputBb.Min.X, inputBb.Min.Y, level);
+                pt1 = new XYZ(inputBb.Max.X, inputBb.Min.Y, level);
+                pt2 = new XYZ(inputBb.Max.X, inputBb.Max.Y, level);
+                pt3 = new XYZ(inputBb.Min.X, inputBb.Max.Y, level);
+
+                Line edge0 = Line.CreateBound(pt0, pt1);
+                Line edge1 = Line.CreateBound(pt1, pt2);
+                Line edge2 = Line.CreateBound(pt2, pt3);
+                Line edge3 = Line.CreateBound(pt3, pt0);
+                List<Curve> edges = new List<Curve>();
+                edges.Add(edge0);
+                edges.Add(edge1);
+                edges.Add(edge2);
+                edges.Add(edge3);
+                CurveLoop baseLoop = CurveLoop.Create(edges);
+                List<CurveLoop> loopList = new List<CurveLoop>();
+                loopList.Add(baseLoop);
+                preTransformBox = GeometryCreationUtilities.CreateExtrusionGeometry(loopList, XYZ.BasisZ, cutPlaneHeight);
+                //Solid 
+                double solidheight = inputBb.Max.Z - inputBb.Min.Z;
+            }
+            else if (view.ViewType == ViewType.ThreeD)
+            {
+                View3D view3D = (View3D)view;
+                inputBb = view3D.GetSectionBox();
+                if (inputBb == null) MessageBox.Show("請確認剖面框是否開啟");
+                pt0 = inputBb.Min;
+                pt1 = new XYZ(inputBb.Max.X, inputBb.Min.Y, inputBb.Min.Z);
+                pt2 = new XYZ(inputBb.Max.X, inputBb.Max.Y, inputBb.Min.Z);
+                pt3 = new XYZ(inputBb.Min.X, inputBb.Max.Y, inputBb.Min.Z);
+                Line edge0 = Line.CreateBound(pt0, pt1);
+                Line edge1 = Line.CreateBound(pt1, pt2);
+                Line edge2 = Line.CreateBound(pt2, pt3);
+                Line edge3 = Line.CreateBound(pt3, pt0);
+                List<Curve> edges = new List<Curve>();
+                edges.Add(edge0);
+                edges.Add(edge1);
+                edges.Add(edge2);
+                edges.Add(edge3);
+                CurveLoop baseLoop = CurveLoop.Create(edges);
+                List<CurveLoop> loopList = new List<CurveLoop>();
+                loopList.Add(baseLoop);
+                double solidheight = inputBb.Max.Z - inputBb.Min.Z;
+                preTransformBox = GeometryCreationUtilities.CreateExtrusionGeometry(loopList, XYZ.BasisZ, solidheight);
+            }
+            return preTransformBox;
+        }
         public void ShowFormSeparateThread(ExternalCommandData commandData)
         {
+            UIApplication uiapp = commandData.Application;
+            Document doc = uiapp.ActiveUIDocument.Document;
             // If we do not have a thread started or has been terminated start a new one
             if (!(_uiThread is null) && _uiThread.IsAlive) return;
             //EXTERNAL EVENTS WITH ARGUMENTS
@@ -139,13 +301,14 @@ namespace CEC_Count
             EventHandlerWithWpfArg evWpf = new EventHandlerWithWpfArg();
 
 
-            //新增執行敘
+            //新增執行序
             _uiThread = new Thread(() =>
             {
                 SynchronizationContext.SetSynchronizationContext(
                     new DispatcherSynchronizationContext(
                         Dispatcher.CurrentDispatcher));
                 // The dialog becomes the owner responsible for disposing the objects given to it.
+
                 _mMyForm = new CountingUI(commandData, evStr, evWpf);
                 _mMyForm.Closed += (s, e) => Dispatcher.CurrentDispatcher.InvokeShutdown();
                 _mMyForm.Show();

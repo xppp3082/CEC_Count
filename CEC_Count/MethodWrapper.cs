@@ -37,16 +37,18 @@ namespace CEC_Count
     {
         public override void Execute(UIApplication uiApp, CountingUI ui)
         {
+            List<Element> usefulList = new List<Element>() { };
             UIDocument uiDoc = uiApp.ActiveUIDocument;
             Document doc = uiDoc.Document;
             List<CustomCate> cusCateLst = new List<CustomCate>();
             Method m = new Method(uiApp);
             //以勾選的品類作為計數單位
             int count = 0;
-
+            bool viewFilterChecked = false;
             ui.Dispatcher.Invoke(() => ui.pBar.Value = 0);
             //ui.Dispatcher.Invoke(() => ui.pBar.Maximum = count);
-            int selectedINdex = ui.rvtLinkInstCombo.SelectedIndex;
+            int selectedINdex = 0;
+            ui.Dispatcher.Invoke(() => selectedINdex = ui.rvtLinkInstCombo.SelectedIndex);
             //排序以本機端檔案為第一個
             if (selectedINdex == 0)
             {
@@ -60,6 +62,7 @@ namespace CEC_Count
                     BuiltCate = BuiltInCategory.OST_Mass
                 };
                 cusCateLst.Add(tempCate);
+                //ui.Dispatcher.Invoke(() => MessageBox.Show("選中第一個檔案"));
             }
             foreach (CustomCate cate in ui.mepCateList.Items)
             {
@@ -72,28 +75,47 @@ namespace CEC_Count
             string countMessage = $"共選擇了 {count} 個品類，正在進行數量計算...";
             ui.Dispatcher.Invoke(() => ui.selectHint.Text = countMessage);
             ui.Dispatcher.Invoke(() => ui.selectHint.Foreground = Brushes.Black);
-            LinkDoc targetDoc = ui.rvtLinkInstCombo.SelectedItem as LinkDoc;
-            if (targetDoc != null)
+            LinkDoc linkDoc = null;
+            //ui.Dispatcher.Invoke(() => targetDoc = ui.rvtLinkInstCombo.SelectedItem as LinkDoc);
+            linkDoc = ui.rvtLinkInstCombo.SelectedItem as LinkDoc;
+            ui.Dispatcher.Invoke(() => viewFilterChecked = ui.filterCheck.IsChecked.GetValueOrDefault());
+            if (linkDoc != null)
             {
-                Autodesk.Revit.DB.Transform targetTrans = targetDoc.Trans;
+                Autodesk.Revit.DB.Transform targetTrans = linkDoc.Trans;
                 //Autodesk.Revit.DB.Transform targetTrans = targetDoc.linkedInstList.First().GetTotalTransform();
                 //先取得量體總數，更新進度條上限
-                List<Element> massLIst = m.getMassFromLinkDoc(targetDoc.Document, targetTrans);
-                ui.Dispatcher.Invoke(() => ui.pBar.Maximum = massLIst.Count());
+                Solid tempSolid = null;
+                List<Element> massList = null;
+                if (viewFilterChecked == true)
+                {
+                    ui.Dispatcher.Invoke(() => ui.selectHint.Text = "YA"); ;
+                    Solid solid = m.getSolidFromActiveView(doc, doc.ActiveView);
+                    tempSolid = solid;
+                    if (solid == null) ui.Dispatcher.Invoke(() => MessageBox.Show("找不到量體"));
+                    ui.Dispatcher.Invoke(() => massList = m.getMassFromLinkDoc(linkDoc.Document, targetTrans, solid));
+                    MessageBox.Show(massList.Count().ToString());
+                }
+                else
+                {
+                    ui.Dispatcher.Invoke(() => massList = m.getMassFromLinkDoc(linkDoc.Document, targetTrans));
+                    /*ui.Dispatcher.Invoke(() => MessageBox.Show(cusCateLst.Count().ToString()));*/
+                    MessageBox.Show(massList.Count().ToString());
+                }
+                ui.Dispatcher.Invoke(() => ui.pBar.Maximum = massList.Count());
 
                 //針對量體總數進行干涉與進度更新
                 using (TransactionGroup transGroup = new TransactionGroup(doc))
                 {
                     transGroup.Start("分區數量計算");
-                    foreach (Element e in massLIst)
+                    m.removeUnuseElementPara(cusCateLst);//先進行全部重置
+                    //DirectShape ds =  m.createSolidFromBBox(doc.ActiveView) ;
+                    foreach (Element e in massList)
                     {
+                        /*List<Element> tempList = */
                         m.countByMass(cusCateLst, e, targetTrans);
+                        //usefulList.Union(tempList).ToList();
                         ui.Dispatcher.Invoke(() => ui.pBar.Value += 1, System.Windows.Threading.DispatcherPriority.Background);
                     }
-                    //foreach(CustomCate cusCate in cusCateLst)
-                    //{
-                    //    ui.Dispatcher.Invoke(() =>ui.pBar.Value+=1,System.Windows.Threading.DispatcherPriority.Background);
-                    //}
                     //排到最後才執行的部分
                     transGroup.Assimilate();
                 }
@@ -106,7 +128,7 @@ namespace CEC_Count
                     });
                 ui.Activate();
             }
-            else if (targetDoc == null)
+            else if (linkDoc == null)
             {
                 Task.Run(() =>
                 {
