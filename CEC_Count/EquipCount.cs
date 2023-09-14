@@ -30,92 +30,6 @@ namespace CEC_Count
             Autodesk.Revit.ApplicationServices.Application app = uiapp.Application;
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
             Document doc = uidoc.Document;
-            Method m = new Method(uiapp);
-            List<BuiltInCategory> builts = new List<BuiltInCategory>() {
-                BuiltInCategory.OST_PipeCurves, 
-                BuiltInCategory.OST_MechanicalEquipment, 
-                BuiltInCategory.OST_Sprinklers ,
-                BuiltInCategory.OST_PipeFitting,
-                BuiltInCategory.OST_FireAlarmDevices
-            };
-            //using (TransactionGroup transGroup = new TransactionGroup(doc))
-            //{
-            //    transGroup.Start("共用參數調整");
-            //    List<string> paraNames = new List<string>() { "MEP用途", "MEP區域" };
-            //    m.loadSharedParmeter(builts, paraNames);
-            //    MessageBox.Show("共用參數調整成功");
-            //    transGroup.Assimilate();
-            //}
-
-            //using (Transaction tt = new Transaction(doc))
-            //{
-            //    tt.Start("共用參數調整");
-
-
-            //    tt.Commit();
-            //}
-
-            //#region
-            ////試著用本機視圖去抓外參中的量體
-            //FilteredElementCollector linkInstCollector = new FilteredElementCollector(doc).OfClass(typeof(RevitLinkInstance));
-            //Document targetDoc = null;
-            //RevitLinkInstance targetLinkInst = null;
-            //foreach (Element e in linkInstCollector)
-            //{
-            //    RevitLinkInstance linkInst = e as RevitLinkInstance;
-            //    if (linkInst != null)
-            //    {
-            //        Document linkedDoc = linkInst.GetLinkDocument();
-            //        if (linkedDoc == null) continue;
-            //        FilteredElementCollector tempColl = new FilteredElementCollector(linkedDoc).OfCategory(BuiltInCategory.OST_Mass).WhereElementIsNotElementType();
-            //        if (tempColl.Count() > 0)
-            //        {
-            //            targetDoc = linkedDoc;
-            //            targetLinkInst = linkInst;
-            //            break;
-            //        }
-            //    }
-            //}
-
-            //////複製可以嘗試複製視圖，但感覺不是好方法，改用BouningBoxUV去進行過濾
-            ////VisibleInViewFilter viewFilter = new VisibleInViewFilter(doc, doc.ActiveView.Id, false);
-            //Transform trans = targetLinkInst.GetTotalTransform();
-            //Autodesk.Revit.DB.View av = doc.ActiveView;
-
-            ////ViewPlan vp = ((ViewPlan)(doc.ActiveView));
-            ////if (vp == null) MessageBox.Show("請在平面視圖中使用此功能");
-            //BoundingBoxXYZ bounding = av.get_BoundingBox(null);
-            ////Outline outline = new Outline(trans.OfPoint(bounding.Min), trans.OfPoint(bounding.Max));
-            //Outline outline = new Outline(bounding.Min, bounding.Max);
-            //BoundingBoxIntersectsFilter boxIntersectFilter = new BoundingBoxIntersectsFilter(outline);
-            //using (Transaction ttrans = new Transaction(doc))
-            //{
-            //    ttrans.Start("試圖量體創建測試");
-            //    Solid tempSolid = getSolidFromBBox(doc.ActiveView);
-            //    ElementIntersectsSolidFilter solidFilter = new ElementIntersectsSolidFilter(tempSolid);
-            //    BoundingBoxXYZ bBox = tempSolid.GetBoundingBox();
-            //    Outline outline1 = new Outline(bBox.Min, bBox.Max);
-            //    BoundingBoxIntersectsFilter bBoxIntersectFilter = new BoundingBoxIntersectsFilter(outline1);
-            //    FilteredElementCollector coll = new FilteredElementCollector(targetDoc).OfCategory(BuiltInCategory.OST_Mass).WherePasses(bBoxIntersectFilter).WhereElementIsNotElementType();
-            //    MessageBox.Show(coll.Count().ToString());       
-            //    DirectShape ds = createSolidFromBBox(av);
-            //    MessageBox.Show(ds.Id.ToString());
-
-            //    ttrans.Commit();
-            //}
-            ////PlanViewRange PVR = vp.GetViewRange();
-            ////double CutOffset = PVR.GetOffset(PlanViewPlane.CutPlane)*2;
-            //////MessageBox.Show((CutOffset * 30.48).ToString());
-            ////ViewCropRegionShapeManager CR = vp.GetCropRegionShapeManager();
-            ////IList<CurveLoop> Crops = CR.GetCropShape();
-            ////MessageBox.Show(Crops.Count().ToString());
-            ////Solid VirtualSolid = GeometryCreationUtilities.CreateExtrusionGeometry(new CurveLoop[] { Crops.First() }, XYZ.BasisZ, CutOffset);
-            ////Solid VirtualLinkSolid = SolidUtils.CreateTransformed(VirtualSolid, targetLinkInst.GetTotalTransform().Inverse);
-            ////ElementIntersectsSolidFilter solidFilter = new ElementIntersectsSolidFilter(VirtualLinkSolid);
-
-            ////FilteredElementCollector massColl = new FilteredElementCollector(targetDoc).OfCategory(BuiltInCategory.OST_Mass).WherePasses(boxIntersectFilter)./*OwnedByView(doc.ActiveView.Id).*/WhereElementIsNotElementType();
-            ////MessageBox.Show(massColl.Count().ToString());
-            //#endregion
 
             this.ShowForm(commandData);
             //this.ShowFormSeparateThread(commandData);
@@ -212,12 +126,13 @@ namespace CEC_Count
             //EXTERNAL EVENTS WITH ARGUMENTS
             EventHandlerWithStringArg evStr = new EventHandlerWithStringArg();
             EventHandlerWithWpfArg evWpf = new EventHandlerWithWpfArg();
-
+            ZoomHandlerWithWpfArg eZoom = new ZoomHandlerWithWpfArg();
+            UpdateHandlerWithWpfArg eUpdate = new UpdateHandlerWithWpfArg();
             #region
 
             // The dialog becomes the owner responsible for disposing the objects given to it.
             #endregion
-            _mMyForm = new CountingUI(commandData, evStr, evWpf);
+            _mMyForm = new CountingUI(commandData, evStr, evWpf,eZoom,eUpdate);
             _mMyForm.Show();
         }
 
@@ -299,7 +214,8 @@ namespace CEC_Count
             //EXTERNAL EVENTS WITH ARGUMENTS
             EventHandlerWithStringArg evStr = new EventHandlerWithStringArg();
             EventHandlerWithWpfArg evWpf = new EventHandlerWithWpfArg();
-
+            ZoomHandlerWithWpfArg eZoom = new ZoomHandlerWithWpfArg();
+            UpdateHandlerWithWpfArg eUpdate = new UpdateHandlerWithWpfArg();
 
             //新增執行序
             _uiThread = new Thread(() =>
@@ -309,7 +225,7 @@ namespace CEC_Count
                         Dispatcher.CurrentDispatcher));
                 // The dialog becomes the owner responsible for disposing the objects given to it.
 
-                _mMyForm = new CountingUI(commandData, evStr, evWpf);
+                _mMyForm = new CountingUI(commandData, evStr, evWpf,eZoom,eUpdate);
                 _mMyForm.Closed += (s, e) => Dispatcher.CurrentDispatcher.InvokeShutdown();
                 _mMyForm.Show();
                 Dispatcher.Run();

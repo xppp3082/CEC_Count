@@ -10,12 +10,16 @@ using System.Windows.Forms;
 
 namespace CEC_Count
 {
-    class Method
+    public class Method
     {
+        public static DisplayUnitType unitType = DisplayUnitType.DUT_MILLIMETERS;
         private UIApplication uiapp;
         private UIDocument uidoc;
         private Autodesk.Revit.ApplicationServices.Application app;
         private Document doc;
+        //public Dictionary<ElementId, List<string>> multiCheckDict;
+        public static Dictionary<ElementId, multiCheckItem> multiCheckDict = new Dictionary<ElementId, multiCheckItem>();
+        public static List<multiCheckItem> multiCheckItems = new List<multiCheckItem>();
         public Method(UIApplication uiapp)
         {
             this.uiapp = uiapp;
@@ -227,7 +231,6 @@ namespace CEC_Count
         }
         //public void getTargetCategory(CountingUI ui, bool isMEP, List<BuiltInCategory> builts)
         public List<CustomCate> getTargetCategory(CountingUI ui, bool isMEP, List<BuiltInCategory> builts)
-        //public ObservableCollection<CustomCate> getTargetCategory(CountingUI ui, bool isMEP, List<BuiltInCategory> builts)
         {
             Categories defaultCates = doc.Settings.Categories;
             //ObservableCollection<CustomCate> targetCates = new ObservableCollection<CustomCate>();
@@ -333,7 +336,7 @@ namespace CEC_Count
             XYZ solidCenter = newSolid.ComputeCentroid();
             Transform newTrans = Transform.Identity;
             newTrans.Origin = solidCenter;
-            Outline outline = new Outline(newTrans.OfPoint( bBox.Min), newTrans.OfPoint( bBox.Max));
+            Outline outline = new Outline(newTrans.OfPoint(bBox.Min), newTrans.OfPoint(bBox.Max));
             BoundingBoxIntersectsFilter bBoxFilter = new BoundingBoxIntersectsFilter(outline);
             FilteredElementCollector massCollector = new FilteredElementCollector(linkDoc).OfCategory(BuiltInCategory.OST_Mass)
                 .WherePasses(bBoxFilter)/*.WherePasses(solidFilter)*//*.WhereElementIsNotElementType()*/;
@@ -347,10 +350,11 @@ namespace CEC_Count
             return massList;
         }
         //蒐集Mass並進行碰撞
-        public void countByMass(List<CustomCate> customCates, Element mass, Transform transform)
-        //public List<Element> countByMass(List<CustomCate> customCates, Element mass, Transform transform)
+        //public bool countByMass(List<CustomCate> customCates, Element mass, Transform transform)
+        public List<Element> countByMass(List<CustomCate> customCates, Element mass, Transform transform)
         {
-            List<Element> targetList = null;
+            //利用List來蒐集已經有被寫入參數的元件
+            List<Element> multiList = null;
             try
             {
                 //Transform transform = linkedInst.GetTotalTransform();
@@ -372,11 +376,13 @@ namespace CEC_Count
                 }
                 string MEPUtility = mass.LookupParameter("MEP用途").AsString();
                 string MEPRegion = mass.LookupParameter("MEP區域").AsString();
+
                 loadSharedParmeter(targetCateLst, paraNames);
                 BoundingBoxXYZ massBounding = mass.get_BoundingBox(null);
                 Outline massOutline = new Outline(transform.OfPoint(massBounding.Min), transform.OfPoint(massBounding.Max));
                 BoundingBoxIntersectsFilter boxIntersectFilter = new BoundingBoxIntersectsFilter(massOutline);
                 Solid castSolid = singleSolidFromElement(mass);
+
                 if (castSolid != null)
                 {
                     castSolid = SolidUtils.CreateTransformed(castSolid, transform);
@@ -386,20 +392,79 @@ namespace CEC_Count
                     MepCollector.WherePasses(boxIntersectFilter).WherePasses(solidFilter);
                     if (MepCollector.Count() > 0)
                     {
-                        targetList = MepCollector.ToList();
                         using (Transaction trans = new Transaction(doc))
                         {
                             trans.Start("寫入分區參數");
                             foreach (Element ee in MepCollector)
                             {
-                                //Parameter targetPara = ee.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS);
+                                //step1.針對元件寫入MEP參數
                                 Parameter targetPara = ee.LookupParameter("MEP用途");
                                 Parameter targetPara2 = ee.LookupParameter("MEP區域");
-                                if (targetPara != null && targetPara2 != null)
+                                //if (!multiCheckDict.Keys.Contains(ee.Id))
+                                #region 2023.09.06 更新方法
+                                if (!multiCheckDict.Keys.Contains(ee.Id))
                                 {
-                                    targetPara.Set(MEPUtility);
-                                    targetPara2.Set(MEPRegion);
+                                    if (targetPara != null && targetPara2 != null)
+                                    {
+                                        targetPara.Set(MEPUtility);
+                                        targetPara2.Set(MEPRegion);
+                                    }
+                                    //創建新Class
+                                    multiCheckItem checkItem = new multiCheckItem()
+                                    {
+                                        FamilyName = ee.Category.Name,
+                                        SymbolName = ee.Name,
+                                        Id = ee.Id,
+                                        MEPUtility = new List<string>() { MEPUtility },
+                                        MEPRegion = new List<string>() { MEPRegion },
+                                        countNum = 1,
+                                        RegionSelected = MEPRegion,
+                                        UtilitySelected = MEPUtility
+                                    };
+                                    multiCheckDict.Add(ee.Id, checkItem);
                                 }
+                                else if (multiCheckDict.ContainsKey(ee.Id))
+                                {
+                                    if (targetPara != null && targetPara2 != null)
+                                    {
+                                        if (targetPara.AsString() == "")
+                                        {
+                                            targetPara.Set("");
+                                            multiCheckDict[ee.Id].MEPUtility.Add("");
+                                            multiCheckDict[ee.Id].UtilitySelected = "";
+                                        }
+                                        else if (targetPara2.AsString() == "")
+                                        {
+                                            targetPara2.Set("");
+                                            multiCheckDict[ee.Id].MEPRegion.Add("");
+                                            multiCheckDict[ee.Id].RegionSelected = "";
+                                        }
+
+                                        if (targetPara.AsString() != "")
+                                        {
+                                            targetPara.Set(targetPara.AsString());
+                                            multiCheckDict[ee.Id].MEPUtility.Add(targetPara.AsString());
+                                            multiCheckDict[ee.Id].UtilitySelected = targetPara.AsString();
+                                        }
+                                        else if (targetPara2.AsString() != "")
+                                        {
+                                            targetPara2.Set(targetPara2.AsString());
+                                            multiCheckDict[ee.Id].MEPRegion.Add(targetPara2.AsString());
+                                            multiCheckDict[ee.Id].RegionSelected = targetPara2.AsString();
+                                        }
+                                    }
+                                    //targetPara.Set(MEPUtility);
+                                    //targetPara2.Set(MEPRegion);
+
+                                    multiCheckDict[ee.Id].MEPUtility.Add(MEPUtility);
+                                    multiCheckDict[ee.Id].MEPRegion.Add(MEPRegion);
+                                    multiCheckDict[ee.Id].countNum += 1;
+
+
+                                    //multiCheckDict[ee.Id].RegionSelected = MEPRegion;
+                                    //multiCheckDict[ee.Id].UtilitySelected = MEPUtility;
+                                }
+                                #endregion
                             }
                             trans.Commit();
                         }
@@ -408,13 +473,22 @@ namespace CEC_Count
             }
             catch
             {
-                MessageBox.Show($"量體干涉發生錯誤");
+                MessageBox.Show($"量體干涉發生錯誤，{multiCheckDict.Keys.Count}");
             }
-            //usefulElements.Union(targetList);
-            //return targetList;
+            return multiList;
         }
-
-        //public void removeUnuseElementPara(List<CustomCate>customCates,List<Element>usefulElement)
+        public List<multiCheckItem> getMulitCheckItemFromDict(Dictionary<ElementId, multiCheckItem> multiCheckDict)
+        {
+            //List<multiCheckItem> targetList = new List<multiCheckItem>();
+            foreach (ElementId id in multiCheckDict.Keys)
+            {
+                multiCheckItem tempItem = multiCheckDict[id];
+                if (tempItem.countNum < 2) continue;
+                //else if (tempItem.countNum >= 2) targetList.Add(tempItem);
+                else if (tempItem.countNum >= 2) multiCheckItems.Add(tempItem);
+            }
+            return multiCheckItems;
+        }
         public void removeUnuseElementPara(List<CustomCate> customCates)
         {
             List<string> paraNames = new List<string>() { "MEP用途", "MEP區域" };
@@ -435,6 +509,114 @@ namespace CEC_Count
                     }
                     trans.Commit();
                 }
+            }
+        }
+        public void multitemsReUpdate(List<multiCheckItem> multiCheckItems)
+        {
+            using (Transaction trans = new Transaction(doc))
+            {
+                trans.Start("重複物件屬性更新");
+                foreach (multiCheckItem mItem in multiCheckItems)
+                {
+                    Element ele = doc.GetElement(mItem.Id);
+                    Parameter regionPara = ele.LookupParameter("MEP區域");
+                    Parameter utilityPara = ele.LookupParameter("MEP用途");
+                    regionPara.Set(mItem.RegionSelected);
+                    utilityPara.Set(mItem.UtilitySelected);
+                }
+                trans.Commit();
+            }
+        }
+        public void zoomCurrentSelection(List<multiCheckItem> multiCheckItems)
+        {
+            //Find a default 3D view
+            FilteredElementCollector collector = new FilteredElementCollector(doc);
+            Func<View3D, bool> isNotTemplate = v3 => !(v3.IsTemplate);
+            View3D isoView = collector.OfClass(typeof(View3D)).Cast<View3D>().First<View3D>(isNotTemplate);
+
+            //Change 3D view BoundingBox by Selected Element
+            List<XYZ> boundingCorners = new List<XYZ>();
+            List<double> boundingX = new List<double>();
+            List<double> boundingY = new List<double>();
+            List<double> boundingZ = new List<double>();
+            using (Transaction trans = new Transaction(doc))
+            {
+                trans.Start("變更視圖剪裁盒");
+                BoundingBoxXYZ bounding = isoView.CropBox;
+                Transform transform = bounding.Transform;
+                Transform transInverse = transform.Inverse;
+                List<XYZ> points = new List<XYZ>();
+                XYZ ptWork = null;
+                //將世界座標轉換成視圖座標，透過TransformInverse的逆變來完成
+                //foreach (Reference r in pickPipeRefs)
+                List<ElementId> selectedIDs = new List<ElementId>();
+                foreach (multiCheckItem mItem in Method.multiCheckItems)
+                {
+                    if (mItem.Selected == true)
+                    {
+                        Element ele = doc.GetElement(mItem.Id);
+                        selectedIDs.Add(mItem.Id);
+                        Reference r = new Reference(ele);
+                        BoundingBoxXYZ bb = doc.GetElement(r).get_BoundingBox(null);
+                        ptWork = transInverse.OfPoint(bb.Min);
+                        points.Add(ptWork);
+                        ptWork = transInverse.OfPoint(bb.Max);
+                        points.Add(ptWork);
+
+                        //boundingBox XYZ Adding
+                        BoundingBoxXYZ tempBox = ele.get_BoundingBox(null);
+                        XYZ maxCorner = tempBox.Max;
+                        XYZ minCorner = tempBox.Min;
+                        boundingCorners.Add(maxCorner);
+                        boundingCorners.Add(minCorner);
+                        //拆解XYZ值之後加入
+                        boundingX.Add(maxCorner.X);
+                        boundingX.Add(minCorner.X);
+                        boundingY.Add(maxCorner.Y);
+                        boundingY.Add(minCorner.Y);
+                        boundingZ.Add(maxCorner.Z);
+                        boundingZ.Add(minCorner.Z);
+                    }
+                }
+                //double adjust = 500;
+                //double adjustOffset = UnitUtils.ConvertToInternalUnits(adjust, unitType);
+                //BoundingBoxXYZ sb = new BoundingBoxXYZ();
+                //sb.Min = new XYZ(points.Min(p => p.X - adjustOffset),
+                //                  points.Min(p => p.Y - adjustOffset),
+                //                  points.Min(p => p.Z - adjustOffset));
+                //sb.Max = new XYZ(points.Max(p => p.X + adjustOffset),
+                //               points.Max(p => p.Y + adjustOffset),
+                //               points.Max(p => p.Z + adjustOffset));
+                //isoView.CropBox = sb;
+                isoView.CropBoxActive = false;
+                isoView.CropBoxVisible = false;
+                isoView.DetailLevel = ViewDetailLevel.Fine;
+                isoView.DisplayStyle = DisplayStyle.Shading;
+
+                boundingX = boundingX.OrderByDescending(x => x).ToList();
+                boundingY = boundingY.OrderByDescending(y => y).ToList();
+                boundingZ = boundingZ.OrderByDescending(z => z).ToList();
+                XYZ maxBB = new XYZ(boundingX.First() + 10, boundingY.First() + 10, boundingZ.First() + 10);
+                XYZ minBB = new XYZ(boundingX.Last() - 10, boundingY.Last() - 10, boundingZ.Last() - 10);
+
+                //boundingCorners = boundingCorners.OrderByDescending(x => x.X).ThenByDescending(x => x.X).ThenByDescending(x => x.Y).ToList();
+                BoundingBoxXYZ newBox = new BoundingBoxXYZ();
+                newBox.Max = maxBB;
+                newBox.Min = minBB;
+                //轉成3D視圖後才可以鎖定視圖
+                View3D isoView3D = isoView as View3D;
+                //isoView3D.SaveOrientationAndLock();
+                isoView3D.IsSectionBoxActive = true;
+                isoView3D.SetSectionBox(newBox);
+
+                trans.Commit();
+
+                //activeView的改變一定要在Transcation結束之後
+                uidoc.ActiveView = isoView3D;
+                uidoc.RefreshActiveView();
+                uidoc.Selection.SetElementIds(selectedIDs);
+                UIView uiview = uidoc.GetOpenUIViews().Cast<UIView>().FirstOrDefault(q => q.ViewId == isoView3D.Id);
+                uiview.ZoomAndCenterRectangle(minBB, maxBB);
             }
 
         }
@@ -520,8 +702,6 @@ namespace CEC_Count
 
             return ds;
         }
-
-
     }
     public class LinkDoc
     {
@@ -558,4 +738,20 @@ namespace CEC_Count
         //}
     }
 
+    //public static class multiCheck
+    //{
+    //    public static Dictionary<ElementId, multiCheckItem> multiCheckDict = new Dictionary<ElementId, multiCheckItem>();
+    //}
+    public class multiCheckItem
+    {
+        public string FamilyName { get; set; }
+        public string SymbolName { get; set; }
+        public ElementId Id { get; set; }
+        public bool Selected { get; set; }
+        public List<string> MEPRegion { get; set; }
+        public List<string> MEPUtility { get; set; }
+        public string RegionSelected { get; set; }
+        public string UtilitySelected { get; set; }
+        public int countNum { get; set; }
+    }
 }

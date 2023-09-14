@@ -30,9 +30,13 @@ namespace CEC_Count
         private readonly Autodesk.Revit.ApplicationServices.Application _app;
         private readonly UIDocument _uiDoc;
         private readonly Document _doc;
+        public Method _method;
 
         private readonly EventHandlerWithStringArg _mExternalMethodStringArg;
         private readonly EventHandlerWithWpfArg _mExternalMethodWpfArg;
+        private readonly ZoomHandlerWithWpfArg _zoomHandlerWithWpfArg;
+        private readonly UpdateHandlerWithWpfArg _updateHandlerWithWpfArg;
+
         //public ObservableCollection<CustomCate> mepCusCateList;
         //public ObservableCollection<CustomCate> civilCusCateList;
         public List<CustomCate> mepCusCateList;
@@ -43,7 +47,7 @@ namespace CEC_Count
         //    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
         public CountingUI(ExternalCommandData commandData, EventHandlerWithStringArg evExternalMethodStringArg,
-            EventHandlerWithWpfArg eExternalMethodWpfArg)
+            EventHandlerWithWpfArg eExternalMethodWpfArg, ZoomHandlerWithWpfArg eZoomHandlerWithWpfArg, UpdateHandlerWithWpfArg eUpdateHandlerWithWpfArg)
         {
             _uiApp = commandData.Application;
             _app = _uiApp.Application;
@@ -55,8 +59,11 @@ namespace CEC_Count
             //UI初始設定
             _mExternalMethodStringArg = evExternalMethodStringArg;
             _mExternalMethodWpfArg = eExternalMethodWpfArg;
-            Method m = new Method(_uiApp);
-            m.getDocFromRevitLinkInst(this, _doc);
+            _zoomHandlerWithWpfArg = eZoomHandlerWithWpfArg;
+            _updateHandlerWithWpfArg = eUpdateHandlerWithWpfArg;
+            //Method m = new Method(_uiApp);
+            _method = new Method(_uiApp);
+            _method.getDocFromRevitLinkInst(this, _doc);
             if (_doc.ActiveView.ViewType != ViewType.FloorPlan)
             {
                 this.filterCheck.IsEnabled = false;
@@ -103,8 +110,8 @@ namespace CEC_Count
                 BuiltInCategory.OST_Windows,
                 BuiltInCategory.OST_Doors
             };
-            mepCusCateList = m.getTargetCategory(this, true, MEPcates);
-            civilCusCateList = m.getTargetCategory(this, false, Civilcates);
+            mepCusCateList = _method.getTargetCategory(this, true, MEPcates);
+            civilCusCateList = _method.getTargetCategory(this, false, Civilcates);
         }
 
         private void continueButton_Click(object sender, RoutedEventArgs e)
@@ -174,6 +181,14 @@ namespace CEC_Count
             this.civilCateList.ItemsSource = civilCusCateList;
         }
 
+        private void updateButtom_Click(object sender, RoutedEventArgs e)
+        {
+            _updateHandlerWithWpfArg.Raise(this);
+        }
 
+        private void zoomButton_Click(object sender, RoutedEventArgs e)
+        {
+            _zoomHandlerWithWpfArg.Raise(this);
+        }
     }
 }

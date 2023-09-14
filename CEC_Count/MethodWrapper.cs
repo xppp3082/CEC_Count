@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Data;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,13 +36,20 @@ namespace CEC_Count
     /// 
     public class EventHandlerWithWpfArg : RevitEventWrapper<CountingUI>
     {
+        #region 更新和結束按鈕的部分
         public override void Execute(UIApplication uiApp, CountingUI ui)
         {
+            //清空前一次的預設值
+            Method.multiCheckDict= new Dictionary<ElementId, multiCheckItem>();
+            Method.multiCheckItems = new List<multiCheckItem>();;
+
             List<Element> usefulList = new List<Element>() { };
             UIDocument uiDoc = uiApp.ActiveUIDocument;
             Document doc = uiDoc.Document;
             List<CustomCate> cusCateLst = new List<CustomCate>();
-            Method m = new Method(uiApp);
+            //Method m = new Method(uiApp);
+            Method m = ui._method;
+
             //以勾選的品類作為計數單位
             int count = 0;
             bool viewFilterChecked = false;
@@ -82,24 +90,20 @@ namespace CEC_Count
             if (linkDoc != null)
             {
                 Autodesk.Revit.DB.Transform targetTrans = linkDoc.Trans;
-                //Autodesk.Revit.DB.Transform targetTrans = targetDoc.linkedInstList.First().GetTotalTransform();
                 //先取得量體總數，更新進度條上限
                 Solid tempSolid = null;
                 List<Element> massList = null;
                 if (viewFilterChecked == true)
                 {
-                    ui.Dispatcher.Invoke(() => ui.selectHint.Text = "YA"); ;
+                    ui.Dispatcher.Invoke(() => ui.selectHint.Text = "Loading....");
                     Solid solid = m.getSolidFromActiveView(doc, doc.ActiveView);
                     tempSolid = solid;
                     if (solid == null) ui.Dispatcher.Invoke(() => MessageBox.Show("找不到量體"));
                     ui.Dispatcher.Invoke(() => massList = m.getMassFromLinkDoc(linkDoc.Document, targetTrans, solid));
-                    MessageBox.Show(massList.Count().ToString());
                 }
                 else
                 {
                     ui.Dispatcher.Invoke(() => massList = m.getMassFromLinkDoc(linkDoc.Document, targetTrans));
-                    /*ui.Dispatcher.Invoke(() => MessageBox.Show(cusCateLst.Count().ToString()));*/
-                    MessageBox.Show(massList.Count().ToString());
                 }
                 ui.Dispatcher.Invoke(() => ui.pBar.Maximum = massList.Count());
 
@@ -111,12 +115,14 @@ namespace CEC_Count
                     //DirectShape ds =  m.createSolidFromBBox(doc.ActiveView) ;
                     foreach (Element e in massList)
                     {
-                        /*List<Element> tempList = */
-                        m.countByMass(cusCateLst, e, targetTrans);
-                        //usefulList.Union(tempList).ToList();
+                        List<Element> checkList = null;
+                        ui.Dispatcher.Invoke(() => checkList = m.countByMass(cusCateLst, e, targetTrans));
                         ui.Dispatcher.Invoke(() => ui.pBar.Value += 1, System.Windows.Threading.DispatcherPriority.Background);
                     }
-                    //排到最後才執行的部分
+                    List<multiCheckItem> multiCheckItems = new List<multiCheckItem>();
+                    ui.Dispatcher.Invoke(() => multiCheckItems = m.getMulitCheckItemFromDict(Method.multiCheckDict));
+                    ui.Dispatcher.Invoke(() => ui.dataGrid1.ItemsSource = multiCheckItems);
+
                     transGroup.Assimilate();
                 }
 
@@ -133,12 +139,39 @@ namespace CEC_Count
                 Task.Run(() =>
                 {
                     string errorMessage = $"計算失敗，請確認是否選擇明確的量體來源模型!!";
-                    //Color errorColor = new Color(255, 0, 0);
                     ui.Dispatcher.Invoke(() => ui.selectHint.Text = errorMessage);
                     ui.Dispatcher.Invoke(() => ui.selectHint.Foreground = Brushes.Red);
                 });
                 ui.Activate();
             }
         }
+        #endregion
+    }
+    public class ZoomHandlerWithWpfArg : RevitEventWrapper<CountingUI>
+    {
+        #region 負責查看按鈕的部分
+        public override void Execute(UIApplication uiApp, CountingUI ui)
+        {
+            Method m = ui._method;
+            m.zoomCurrentSelection(Method.multiCheckItems);
+        }
+        #endregion
+    }
+    public class UpdateHandlerWithWpfArg : RevitEventWrapper<CountingUI>
+    {
+        #region 負責更新按鈕的部分
+        public override void Execute(UIApplication uiApp, CountingUI ui)
+        {
+            //string output = "";
+            List<string> nameList = new List<string>();
+            try
+            {
+                Method m = ui._method;
+                m.multitemsReUpdate(Method.multiCheckItems);
+            }
+            catch { }
+            //ui.Dispatcher.Invoke(() => ui.selectHint.Text = "按下更新按鈕!");
+        }
+        #endregion
     }
 }
