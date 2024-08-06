@@ -40,7 +40,7 @@ namespace CEC_Count
         public override void Execute(UIApplication uiApp, CountingUI ui)
         {
             //清空前一次的預設值
-            Method.multiCheckDict= new Dictionary<ElementId, multiCheckItem>();
+            Method.multiCheckDict = new Dictionary<ElementId, multiCheckItem>();
             Method.multiCheckItems = new List<multiCheckItem>();;
 
             List<Element> usefulList = new List<Element>() { };
@@ -111,7 +111,7 @@ namespace CEC_Count
                 using (TransactionGroup transGroup = new TransactionGroup(doc))
                 {
                     transGroup.Start("分區數量計算");
-                    m.removeUnuseElementPara(cusCateLst);//先進行全部重置
+
                     //DirectShape ds =  m.createSolidFromBBox(doc.ActiveView) ;
                     foreach (Element e in massList)
                     {
@@ -122,6 +122,7 @@ namespace CEC_Count
                     List<multiCheckItem> multiCheckItems = new List<multiCheckItem>();
                     ui.Dispatcher.Invoke(() => multiCheckItems = m.getMulitCheckItemFromDict(Method.multiCheckDict));
                     ui.Dispatcher.Invoke(() => ui.dataGrid1.ItemsSource = multiCheckItems);
+                    m.removeUnuseElementPara(cusCateLst);//針對沒干涉到的進行重置
 
                     transGroup.Assimilate();
                 }

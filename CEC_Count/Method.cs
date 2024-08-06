@@ -12,7 +12,11 @@ namespace CEC_Count
 {
     public class Method
     {
+#if RELEASE2019
         public static DisplayUnitType unitType = DisplayUnitType.DUT_MILLIMETERS;
+#else
+        public static ForgeTypeId unitType = UnitTypeId.Millimeters;
+#endif
         private UIApplication uiapp;
         private UIDocument uidoc;
         private Autodesk.Revit.ApplicationServices.Application app;
@@ -398,73 +402,49 @@ namespace CEC_Count
                             foreach (Element ee in MepCollector)
                             {
                                 //step1.針對元件寫入MEP參數
-                                Parameter targetPara = ee.LookupParameter("MEP用途");
-                                Parameter targetPara2 = ee.LookupParameter("MEP區域");
+                                Parameter targetPara_Use= ee.LookupParameter("MEP用途");
+                                Parameter targetPara_Region = ee.LookupParameter("MEP區域");
                                 //if (!multiCheckDict.Keys.Contains(ee.Id))
-                                #region 2023.09.06 更新方法
+#region 2023.09.06 更新方法
                                 if (!multiCheckDict.Keys.Contains(ee.Id))
                                 {
-                                    if (targetPara != null && targetPara2 != null)
+                                    if (targetPara_Use != null && targetPara_Region != null)
                                     {
-                                        targetPara.Set(MEPUtility);
-                                        targetPara2.Set(MEPRegion);
+                                        //創建新Class
+                                        multiCheckItem checkItem = new multiCheckItem()
+                                        {
+                                            FamilyName = ee.Category.Name,
+                                            SymbolName = ee.Name,
+                                            Id = ee.Id,
+                                            MEPUtility = new List<string>() { MEPUtility },
+                                            MEPRegion = new List<string>() { MEPRegion },
+                                            countNum = 1,
+                                            //RegionSelected = targetPara_Region.AsString(),
+                                            //UtilitySelected = targetPara_Use.AsString()
+                                        };
+                                        string paraString2 = targetPara_Region.AsString();
+                                        string paraString = targetPara_Use.AsString();
+                                        if (paraString2 == "") checkItem.MEPRegion.Insert(0, "");
+                                        if (paraString == "") checkItem.MEPUtility.Insert(0, "");
+                                        checkItem.RegionSelected = paraString2;
+                                        checkItem.UtilitySelected = paraString;
+                                        //MessageBox.Show($"{checkItem.RegionSelected}+{checkItem.UtilitySelected}");
+
+                                        multiCheckDict.Add(ee.Id, checkItem);
+                                        targetPara_Use.Set(MEPUtility);
+                                        targetPara_Region.Set(MEPRegion);
                                     }
-                                    //創建新Class
-                                    multiCheckItem checkItem = new multiCheckItem()
-                                    {
-                                        FamilyName = ee.Category.Name,
-                                        SymbolName = ee.Name,
-                                        Id = ee.Id,
-                                        MEPUtility = new List<string>() { MEPUtility },
-                                        MEPRegion = new List<string>() { MEPRegion },
-                                        countNum = 1,
-                                        RegionSelected = MEPRegion,
-                                        UtilitySelected = MEPUtility
-                                    };
-                                    multiCheckDict.Add(ee.Id, checkItem);
                                 }
                                 else if (multiCheckDict.ContainsKey(ee.Id))
                                 {
-                                    if (targetPara != null && targetPara2 != null)
-                                    {
-                                        if (targetPara.AsString() == "")
-                                        {
-                                            targetPara.Set("");
-                                            multiCheckDict[ee.Id].MEPUtility.Add("");
-                                            multiCheckDict[ee.Id].UtilitySelected = "";
-                                        }
-                                        else if (targetPara2.AsString() == "")
-                                        {
-                                            targetPara2.Set("");
-                                            multiCheckDict[ee.Id].MEPRegion.Add("");
-                                            multiCheckDict[ee.Id].RegionSelected = "";
-                                        }
-
-                                        if (targetPara.AsString() != "")
-                                        {
-                                            targetPara.Set(targetPara.AsString());
-                                            multiCheckDict[ee.Id].MEPUtility.Add(targetPara.AsString());
-                                            multiCheckDict[ee.Id].UtilitySelected = targetPara.AsString();
-                                        }
-                                        else if (targetPara2.AsString() != "")
-                                        {
-                                            targetPara2.Set(targetPara2.AsString());
-                                            multiCheckDict[ee.Id].MEPRegion.Add(targetPara2.AsString());
-                                            multiCheckDict[ee.Id].RegionSelected = targetPara2.AsString();
-                                        }
-                                    }
-                                    //targetPara.Set(MEPUtility);
-                                    //targetPara2.Set(MEPRegion);
-
                                     multiCheckDict[ee.Id].MEPUtility.Add(MEPUtility);
                                     multiCheckDict[ee.Id].MEPRegion.Add(MEPRegion);
                                     multiCheckDict[ee.Id].countNum += 1;
 
-
-                                    //multiCheckDict[ee.Id].RegionSelected = MEPRegion;
-                                    //multiCheckDict[ee.Id].UtilitySelected = MEPUtility;
+                                    targetPara_Use.Set(multiCheckDict[ee.Id].UtilitySelected);
+                                    targetPara_Region.Set(multiCheckDict[ee.Id].RegionSelected);
                                 }
-                                #endregion
+#endregion
                             }
                             trans.Commit();
                         }
@@ -497,17 +477,20 @@ namespace CEC_Count
             FilteredElementCollector roughCollector = new FilteredElementCollector(doc).WherePasses(orFilter).WhereElementIsNotElementType();
             foreach (Element e in roughCollector)
             {
-                using (Transaction trans = new Transaction(doc))
+                if (!multiCheckDict.Keys.Contains(e.Id))
                 {
-                    trans.Start("清除未干涉參數");
-                    Parameter targetPara = e.LookupParameter(paraNames[0]);
-                    Parameter targetPara2 = e.LookupParameter(paraNames[1]);
-                    if (targetPara != null && targetPara2 != null)
+                    using (Transaction trans = new Transaction(doc))
                     {
-                        targetPara.Set("");
-                        targetPara2.Set("");
+                        trans.Start("清除未干涉參數");
+                        Parameter targetPara = e.LookupParameter(paraNames[0]);
+                        Parameter targetPara2 = e.LookupParameter(paraNames[1]);
+                        if (targetPara != null && targetPara2 != null)
+                        {
+                            targetPara.Set("");
+                            targetPara2.Set("");
+                        }
+                        trans.Commit();
                     }
-                    trans.Commit();
                 }
             }
         }
